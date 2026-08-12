@@ -7,6 +7,7 @@ use std::{
 
 use crossterm::{
     ExecutableCommand,
+    cursor::{Hide, Show},
     event::{Event, KeyCode, KeyEvent, KeyModifiers, poll, read},
     terminal,
 };
@@ -30,6 +31,7 @@ struct Chip8Emulator {
 
 fn main() -> Result<(), Box<dyn Error>> {
     crossterm::terminal::enable_raw_mode().expect("to enable row mode");
+    stdout().execute(Hide).expect("to hide");
 
     let rom = fs::read("./15PUZZLE").expect("Error getting the file");
 
@@ -64,6 +66,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         }
     }
 
+    stdout().execute(Show).expect("to show");
     crossterm::terminal::disable_raw_mode().expect("to disable raw mode");
 
     Ok(())
@@ -82,6 +85,7 @@ fn draw_display_to_console(emulator: &Chip8Emulator) {
                     (i / WIDTH) as u16,
                 ))
                 .expect("to move cursor");
+            stdout().write(b"X").expect("to move cursor");
         }
     }
 
@@ -104,7 +108,7 @@ fn game_loop(emulator: &mut Chip8Emulator, rom: &[u8]) {
     } else if byte1 & 0xf0 == 0x00 {
         // Call 0NNN
         // "This instruction is only used on the old computers on which Chip-8 was originally implemented. It is ignored by modern interpreters."
-        unreachable!("This should never happen, if it happens, just remove this line");
+        emulator.program_counter += 2;
     } else if byte1 & 0xf0 == 0x10 {
         // 1NNN
         go_to(emulator, byte1, byte2);
@@ -163,7 +167,7 @@ fn game_loop(emulator: &mut Chip8Emulator, rom: &[u8]) {
             // if (key() != Vx)
             skip_if_key_not_pressed(emulator, lowest_vx);
         } else {
-            eprintln!("This opcode doesn't exist {:02x}{:02x}", byte1, byte2);
+            panic!("This opcode doesn't exist {:02x}{:02x}", byte1, byte2);
         }
     } else if byte1 & 0xf0 == 0xf0 {
         // FX**
@@ -209,7 +213,7 @@ fn game_loop(emulator: &mut Chip8Emulator, rom: &[u8]) {
             // reg_load(Vx, &I)
             store_i_into_v(emulator, register_x);
         } else {
-            eprintln!("This opcode doesn't exist {:02x}{:02x}", byte1, byte2);
+            panic!("This opcode doesn't exist {:02x}{:02x}", byte1, byte2);
         }
     }
 }
