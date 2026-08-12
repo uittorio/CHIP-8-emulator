@@ -535,11 +535,12 @@ fn clear_display(emulator: &mut Chip8Emulator) {
     emulator.program_counter = emulator.program_counter + 2;
 }
 
-fn log(what: String) {
-    let mut file = OpenOptions::new()
-        .append(true)
-        .write(true)
-        .open("log.log")
-        .unwrap();
-    writeln!(&mut file, "{}", what).unwrap();
+fn log(_what: String) {
+    // MUTED
+    // let mut file = OpenOptions::new()
+    //     .append(true)
+    //     .write(true)
+    //     .open("log.log")
+    //     .unwrap();
+    // writeln!(&mut file, "{}", what).unwrap();
 }
