@@ -1,6 +1,6 @@
 use std::{
     error::Error,
-    fs,
+    fs::{self, OpenOptions},
     io::{Write, stdout},
     time::Duration,
 };
@@ -17,6 +17,7 @@ const HEIGHT: usize = 32;
 
 // https://en.wikipedia.org/wiki/CHIP-8
 // http://devernay.free.fr/hacks/chip8/C8TECH10.HTM
+// https://austinmorlan.com/posts/chip8_emulator/
 struct Chip8Emulator {
     data_registers: [u8; 16], // V*
     address_register: u16,    // I
@@ -33,7 +34,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     crossterm::terminal::enable_raw_mode().expect("to enable row mode");
     stdout().execute(Hide).expect("to hide");
 
-    let rom = fs::read("./15PUZZLE").expect("Error getting the file");
+    let rom = fs::read("./Tic-Tac-Toe.ch8").expect("Error getting the file");
 
     let mut emulator = Chip8Emulator {
         data_registers: [0u8; 16],
@@ -42,16 +43,18 @@ fn main() -> Result<(), Box<dyn Error>> {
         delay_timer: 0,
         sound_timer: 0,
         input: 0,
-        program_counter: 0,
+        program_counter: 512, // Start of memory space where the rom is loaded
         memory: [0u8; 4096],
         display: [false; WIDTH * HEIGHT],
     };
+
+    load_rom(&mut emulator, rom);
 
     // TODO!
     // set_font_in_memory(&mut emulator.memory);
 
     loop {
-        game_loop(&mut emulator, &rom);
+        game_loop(&mut emulator);
         draw_display_to_console(&emulator);
 
         if poll(Duration::from_millis(10))? {
@@ -70,6 +73,10 @@ fn main() -> Result<(), Box<dyn Error>> {
     crossterm::terminal::disable_raw_mode().expect("to disable raw mode");
 
     Ok(())
+}
+
+fn load_rom(emulator: &mut Chip8Emulator, rom: Vec<u8>) {
+    emulator.memory[512..(512 + rom.len())].copy_from_slice(&rom);
 }
 
 fn draw_display_to_console(emulator: &Chip8Emulator) {
@@ -92,12 +99,21 @@ fn draw_display_to_console(emulator: &Chip8Emulator) {
     stdout().flush().expect("to flush");
 }
 
-fn game_loop(emulator: &mut Chip8Emulator, rom: &[u8]) {
-    if emulator.program_counter >= rom.len() {
-        return;
+fn game_loop(emulator: &mut Chip8Emulator) {
+    if emulator.program_counter >= emulator.memory.len() {
+        panic!(
+            "Program counter {} is bigger than memory length {}",
+            emulator.program_counter,
+            emulator.memory.len()
+        );
     }
-    let byte1 = rom[emulator.program_counter];
-    let byte2 = rom[emulator.program_counter + 1];
+    let byte1 = emulator.memory[emulator.program_counter];
+    let byte2 = emulator.memory[emulator.program_counter + 1];
+
+    log(format!(
+        "Running PC {} (OPCODE {:x}{:x})",
+        emulator.program_counter, byte1, byte2
+    ));
 
     if byte1 == 0x00 && byte2 == 0xE0 {
         // 00E0
@@ -247,6 +263,7 @@ fn draw_sprite(emulator: &mut Chip8Emulator, byte1: u8, byte2: u8) {
             }
         }
     }
+    emulator.program_counter = emulator.program_counter + 2;
 }
 
 fn store_i_into_v(emulator: &mut Chip8Emulator, register_x: usize) {
@@ -301,6 +318,8 @@ fn wait_for_key_press(emulator: &mut Chip8Emulator, register_x: usize) {
         // this effectively get the position from right of the leftmost 1 in the binary
         emulator.data_registers[register_x] = emulator.input.ilog2() as u8;
         emulator.program_counter = emulator.program_counter + 2;
+    } else {
+        log("key not pressed".into());
     }
 }
 
@@ -435,7 +454,7 @@ fn vx_operations(emulator: &mut Chip8Emulator, byte1: u8, byte2: u8) {
 fn add_nn_vx(emulator: &mut Chip8Emulator, byte1: u8, byte2: u8) {
     let register = (byte1 & 0b00001111) as usize;
 
-    emulator.data_registers[register] = emulator.data_registers[register] + byte2;
+    emulator.data_registers[register] = emulator.data_registers[register].wrapping_add(byte2);
     emulator.program_counter = emulator.program_counter + 2;
 }
 
@@ -482,8 +501,9 @@ fn call_subroutine(emulator: &mut Chip8Emulator, byte1: u8, byte2: u8) {
 
     let nnn = first_value_shift_left | second_value;
 
-    emulator.stack.push(emulator.program_counter as u32);
+    emulator.stack.push(emulator.program_counter as u32 + 2);
     emulator.program_counter = nnn;
+    log(format!("Called subroutine at PC {}", nnn));
 }
 
 fn go_to(emulator: &mut Chip8Emulator, byte1: u8, byte2: u8) {
@@ -495,6 +515,10 @@ fn go_to(emulator: &mut Chip8Emulator, byte1: u8, byte2: u8) {
     let nnn = first_value_shift_left | second_value;
 
     emulator.program_counter = nnn;
+    log(format!(
+        "Go to PC {} (from byte1 {:x} and byte2 {:x})",
+        nnn, byte1, byte2
+    ));
 }
 
 fn return_subroutine(emulator: &mut Chip8Emulator) {
@@ -503,9 +527,19 @@ fn return_subroutine(emulator: &mut Chip8Emulator) {
         .pop()
         .expect("Called return when not in a subroutine!!!");
     emulator.program_counter = address as usize;
+    log(format!("Return to PC {}", address));
 }
 
 fn clear_display(emulator: &mut Chip8Emulator) {
     emulator.display.fill(false);
     emulator.program_counter = emulator.program_counter + 2;
+}
+
+fn log(what: String) {
+    let mut file = OpenOptions::new()
+        .append(true)
+        .write(true)
+        .open("log.log")
+        .unwrap();
+    writeln!(&mut file, "{}", what).unwrap();
 }
