@@ -2,7 +2,6 @@ use std::{
     error::Error,
     fs,
     io::{Write, stdout},
-    process::exit,
     time::Duration,
 };
 
