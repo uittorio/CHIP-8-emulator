@@ -3,10 +3,12 @@ use std::{fs, process::exit};
 const WIDTH: usize = 64;
 const HEIGHT: usize = 32;
 
+// https://en.wikipedia.org/wiki/CHIP-8
+// http://devernay.free.fr/hacks/chip8/C8TECH10.HTM
 struct Chip8Emulator {
     data_registers: [u8; 16], // V*
     address_register: u16,    // I
-    stack: Vec<u32>,
+    stack: Vec<u32>, // Wiki says that this is 32 bits (inferred from definition) but the davernay says it's 16 bits :shrug:
     delay_timer: u8,
     sound_timer: u8,
     input: u16,
@@ -41,16 +43,19 @@ fn main() {
 
         println!("{:02x}{:02x}", byte1, byte2);
 
-        // 00E0
-        if byte1 == 0x00 && byte2 == 0xE0 {
+        if byte1 & 0xf0 == 0x00 {
+            // Call 0NNN
+            unreachable!("I hope this is unreachable, the wiki doesn't explain what it does");
+        } else if byte1 == 0x00 && byte2 == 0xE0 {
+            // 00E0
             clear_display();
             emulator.program_counter = emulator.program_counter + 2;
         } else if byte1 == 0x00 && byte2 == 0xEE {
-            // Flow 00EE
-            todo!()
-        } else if byte1 & 0xf0 == 0x00 {
-            // Call 0NNN
-            todo!()
+            let address = emulator
+                .stack
+                .pop()
+                .expect("Called return when not in a subroutine!!!");
+            emulator.program_counter = address as usize;
         } else if byte1 & 0xf0 == 0x10 {
             // 1NNN
 
@@ -64,7 +69,17 @@ fn main() {
             emulator.program_counter = nnn;
         } else if byte1 & 0xf0 == 0x20 {
             // 2NNN
-            todo!()
+            // *(0xNNN)()
+
+            let first_value = (byte1 & 0b00001111) as usize;
+
+            let first_value_shift_left = first_value << 8;
+            let second_value = byte2 as usize;
+
+            let nnn = first_value_shift_left | second_value;
+
+            emulator.stack.push(emulator.program_counter as u32);
+            emulator.program_counter = nnn;
         } else if byte1 & 0xf0 == 0x30 {
             // 3XNN
             let register = (byte1 & 0b00001111) as usize;
@@ -329,5 +344,5 @@ fn main() {
 }
 
 fn clear_display() {
-    eprintln!("Clearing display!");
+    todo!()
 }
