@@ -1,3 +1,5 @@
+mod draw;
+
 use std::{
     error::Error,
     fs::{self, OpenOptions},
@@ -11,6 +13,8 @@ use crossterm::{
     event::{Event, KeyCode, KeyEvent, KeyModifiers, poll, read},
     terminal,
 };
+
+use crate::draw::draw_display_to_console;
 
 const WIDTH: usize = 64;
 const HEIGHT: usize = 32;
@@ -67,6 +71,8 @@ fn main() -> Result<(), Box<dyn Error>> {
             }
 
             emulator.input = read_emulator_input(evt);
+        } else {
+            emulator.input = 0;
         }
 
         emulator.delay_timer = emulator.delay_timer.saturating_sub(1);
@@ -229,26 +235,6 @@ fn load_font(emulator: &mut Chip8Emulator) {
         0b10000000,
     ];
     emulator.memory[0..fonts.len()].copy_from_slice(&fonts);
-}
-
-fn draw_display_to_console(emulator: &Chip8Emulator) {
-    stdout()
-        .execute(terminal::Clear(terminal::ClearType::All))
-        .expect("to be able to clear");
-
-    for (i, &pixel) in emulator.display.iter().enumerate() {
-        if pixel {
-            stdout()
-                .execute(crossterm::cursor::MoveTo(
-                    (i % WIDTH) as u16,
-                    (i / WIDTH) as u16,
-                ))
-                .expect("to move cursor");
-            stdout().write(b"X").expect("to move cursor");
-        }
-    }
-
-    stdout().flush().expect("to flush");
 }
 
 fn game_loop(emulator: &mut Chip8Emulator) {
