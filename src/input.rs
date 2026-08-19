@@ -1,10 +1,11 @@
 use std::sync::mpsc::Sender;
 
-use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers, read};
+use crossterm::event::{Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers, read};
 
 pub enum Chip8Event {
     Exit,
-    Input(u16),
+    KeyDown(u16),
+    KeyUp(u16),
 }
 
 pub fn read_inputs(tx: Sender<Chip8Event>) {
@@ -13,14 +14,19 @@ pub fn read_inputs(tx: Sender<Chip8Event>) {
             if let Event::Key(KeyEvent {
                 code: KeyCode::Char('c'),
                 modifiers: KeyModifiers::CONTROL,
+                kind: KeyEventKind::Press,
                 ..
             }) = evt
             {
                 tx.send(Chip8Event::Exit)
                     .expect("I HOPE THIS DOESN'T BREAK");
             } else {
-                tx.send(Chip8Event::Input(read_emulator_input(evt)))
-                    .expect("I HOPE THIS DOESN'T BREAK");
+                tx.send(if evt.is_key_release() {
+                    Chip8Event::KeyUp(read_emulator_input(evt))
+                } else {
+                    Chip8Event::KeyDown(read_emulator_input(evt))
+                })
+                .expect("I HOPE THIS DOESN'T BREAK");
             }
         }
     }

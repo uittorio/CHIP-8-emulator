@@ -26,8 +26,9 @@ pub fn draw_display_to_console(emulator: &Chip8Emulator) {
         Print(format!("emulator input {}", emulator.input)),
         crossterm::cursor::MoveTo(WIDTH as u16 + 3, 1),
         Print(format!(
-            "emulator input {:x}",
-            emulator.memory[emulator.program_counter]
+            "emulator opcode 0x{:02x}{:02x}",
+            emulator.memory[emulator.program_counter],
+            emulator.memory[emulator.program_counter + 1]
         ))
     )
     .expect("to queue");

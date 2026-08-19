@@ -11,9 +11,9 @@ use std::{
 };
 
 use crossterm::{
-    ExecutableCommand,
     cursor::{Hide, Show},
-    execute, queue, terminal,
+    event::{KeyboardEnhancementFlags, PopKeyboardEnhancementFlags, PushKeyboardEnhancementFlags},
+    execute, terminal,
 };
 
 use crate::{
@@ -41,14 +41,23 @@ struct Chip8Emulator {
     display: [bool; WIDTH * HEIGHT],
 }
 
+// TODO: INVADERS doesn't work, because we couldn't figure out how to configure the terminal to listen for KEY UP
+// We tried with PushKeyboardEnhancementFlags(KeyboardEnhancementFlags::DISAMBIGUATE_ESCAPE_CODES) but it doesn't seem to be doing anything, even on kitty
+// We either fix that or we change it to not have input/output with a terminal so that we can handle inputs in an easier way
+
 fn main() -> Result<(), Box<dyn Error>> {
     crossterm::terminal::enable_raw_mode().expect("to enable row mode");
-    stdout().execute(Hide).expect("to hide");
+    execute!(
+        stdout(),
+        Hide,
+        PushKeyboardEnhancementFlags(KeyboardEnhancementFlags::DISAMBIGUATE_ESCAPE_CODES)
+    )
+    .expect("to execute initial stuff");
 
     let (tx, rx) = channel::<Chip8Event>();
     thread::spawn(|| read_inputs(tx));
 
-    let rom = fs::read("./Tic-Tac-Toe.ch8").expect("Error getting the file");
+    let rom = fs::read("./INVADERS").expect("Error getting the file");
 
     let mut emulator = Chip8Emulator {
         data_registers: [0u8; 16],
@@ -73,7 +82,8 @@ fn main() -> Result<(), Box<dyn Error>> {
         emulator.input = 0;
         match rx.try_iter().last() {
             Some(Chip8Event::Exit) => break,
-            Some(Chip8Event::Input(input)) => emulator.input = input,
+            Some(Chip8Event::KeyDown(input)) => emulator.input |= input,
+            Some(Chip8Event::KeyUp(input)) => emulator.input &= !input,
             _ => {}
         }
 
@@ -92,8 +102,13 @@ fn main() -> Result<(), Box<dyn Error>> {
         }
     }
 
-    execute!(stdout(), Show, terminal::Clear(terminal::ClearType::All))
-        .expect("to be able to queue");
+    execute!(
+        stdout(),
+        Show,
+        terminal::Clear(terminal::ClearType::All),
+        PopKeyboardEnhancementFlags
+    )
+    .expect("to be able to queue");
     crossterm::terminal::disable_raw_mode().expect("to disable raw mode");
 
     Ok(())
@@ -233,7 +248,7 @@ fn game_loop(emulator: &mut Chip8Emulator) {
     let byte2 = emulator.memory[emulator.program_counter + 1];
 
     log(format!(
-        "Running PC {} (OPCODE {:x}{:x})",
+        "Running PC {} (OPCODE 0x{:02x}{:02x})",
         emulator.program_counter, byte1, byte2
     ));
 
