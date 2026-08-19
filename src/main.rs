@@ -7,11 +7,13 @@ use std::{
     io::{Write, stdout},
     sync::mpsc::channel,
     thread,
+    time::{Duration, Instant},
 };
 
 use crossterm::{
     ExecutableCommand,
     cursor::{Hide, Show},
+    execute, queue, terminal,
 };
 
 use crate::{
@@ -21,6 +23,8 @@ use crate::{
 
 const WIDTH: usize = 64;
 const HEIGHT: usize = 32;
+const FPS: u64 = 60;
+const FRAME_LENGTH: Duration = Duration::from_micros(1_000_000 / FPS);
 
 // https://en.wikipedia.org/wiki/CHIP-8
 // http://devernay.free.fr/hacks/chip8/C8TECH10.HTM
@@ -61,23 +65,35 @@ fn main() -> Result<(), Box<dyn Error>> {
     load_rom(&mut emulator, rom);
     load_font(&mut emulator);
 
-    'main: loop {
-        game_loop(&mut emulator);
-        draw_display_to_console(&emulator);
+    let mut remaining_to_next_frame = FRAME_LENGTH;
 
-        emulator.delay_timer = emulator.delay_timer.saturating_sub(1);
-        emulator.sound_timer = emulator.sound_timer.saturating_sub(1);
+    loop {
+        let start = Instant::now();
 
         emulator.input = 0;
-        for evt in rx.try_iter() {
-            match evt {
-                Chip8Event::Exit => break 'main,
-                Chip8Event::Input(input) => emulator.input = input,
-            }
+        match rx.try_iter().last() {
+            Some(Chip8Event::Exit) => break,
+            Some(Chip8Event::Input(input)) => emulator.input = input,
+            _ => {}
+        }
+
+        game_loop(&mut emulator);
+
+        let now = Instant::now();
+        let main_loop_duration = now - start;
+
+        if main_loop_duration >= remaining_to_next_frame {
+            draw_display_to_console(&emulator);
+            emulator.delay_timer = emulator.delay_timer.saturating_sub(1);
+            emulator.sound_timer = emulator.sound_timer.saturating_sub(1);
+            remaining_to_next_frame = FRAME_LENGTH - (main_loop_duration - remaining_to_next_frame);
+        } else {
+            remaining_to_next_frame -= main_loop_duration;
         }
     }
 
-    stdout().execute(Show).expect("to show");
+    execute!(stdout(), Show, terminal::Clear(terminal::ClearType::All))
+        .expect("to be able to queue");
     crossterm::terminal::disable_raw_mode().expect("to disable raw mode");
 
     Ok(())
@@ -430,6 +446,7 @@ fn wait_for_key_press(emulator: &mut Chip8Emulator, register_x: usize) {
         // this effectively get the position from right of the leftmost 1 in the binary
         emulator.data_registers[register_x] = emulator.input.ilog2() as u8;
         emulator.program_counter = emulator.program_counter + 2;
+        log(format!("key pressed {}", emulator.input));
     } else {
         log("key not pressed".into());
     }

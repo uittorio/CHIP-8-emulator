@@ -18,10 +18,10 @@ pub fn read_inputs(tx: Sender<Chip8Event>) {
             {
                 tx.send(Chip8Event::Exit)
                     .expect("I HOPE THIS DOESN'T BREAK");
+            } else {
+                tx.send(Chip8Event::Input(read_emulator_input(evt)))
+                    .expect("I HOPE THIS DOESN'T BREAK");
             }
-
-            tx.send(Chip8Event::Input(read_emulator_input(evt)))
-                .expect("I HOPE THIS DOESN'T BREAK");
         }
     }
 }
