@@ -34,7 +34,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     crossterm::terminal::enable_raw_mode().expect("to enable row mode");
     stdout().execute(Hide).expect("to hide");
 
-    let rom = fs::read("./Tic-Tac-Toe.ch8").expect("Error getting the file");
+    let rom = fs::read("./15PUZZLE").expect("Error getting the file");
 
     let mut emulator = Chip8Emulator {
         data_registers: [0u8; 16],
@@ -49,9 +49,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     };
 
     load_rom(&mut emulator, rom);
-
-    // TODO!
-    // set_font_in_memory(&mut emulator.memory);
+    load_font(&mut emulator);
 
     loop {
         game_loop(&mut emulator);
@@ -77,6 +75,124 @@ fn main() -> Result<(), Box<dyn Error>> {
 
 fn load_rom(emulator: &mut Chip8Emulator, rom: Vec<u8>) {
     emulator.memory[512..(512 + rom.len())].copy_from_slice(&rom);
+}
+
+fn load_font(emulator: &mut Chip8Emulator) {
+    #[rustfmt::skip]
+    let fonts = vec![
+        // 0
+        0b11110000,
+        0b10010000,
+        0b10010000,
+        0b10010000,
+        0b11110000,
+
+        // 1
+        0b10000000,
+        0b10000000,
+        0b10000000,
+        0b10000000,
+        0b10000000,
+
+        // 2
+        0b11110000,
+        0b00010000,
+        0b11110000,
+        0b10000000,
+        0b11110000,
+
+        // 3
+        0b11110000,
+        0b00010000,
+        0b11110000,
+        0b00010000,
+        0b11110000,
+
+        // 4
+        0b10010000,
+        0b10010000,
+        0b11110000,
+        0b00010000,
+        0b00010000,
+
+        // 5
+        0b11110000,
+        0b10000000,
+        0b11110000,
+        0b00010000,
+        0b11110000,
+
+        // 6
+        0b11110000,
+        0b10000000,
+        0b11110000,
+        0b10010000,
+        0b11110000,
+
+        // 7
+        0b11110000,
+        0b00010000,
+        0b00010000,
+        0b00010000,
+        0b00010000,
+
+        // 8
+        0b11110000,
+        0b10010000,
+        0b11110000,
+        0b10010000,
+        0b11110000,
+
+        // 9
+        0b11110000,
+        0b10010000,
+        0b11110000,
+        0b00010000,
+        0b00010000,
+
+        // A
+        0b01100000,
+        0b10010000,
+        0b11110000,
+        0b10010000,
+        0b10010000,
+
+        // B
+        0b11100000,
+        0b10010000,
+        0b11110000,
+        0b10010000,
+        0b11100000,
+
+        // C
+        0b01110000,
+        0b10000000,
+        0b10000000,
+        0b10000000,
+        0b01110000,
+
+        // D
+        0b11100000,
+        0b10010000,
+        0b10010000,
+        0b10010000,
+        0b11100000,
+
+        // E
+        0b11110000,
+        0b10000000,
+        0b11110000,
+        0b10000000,
+        0b11110000,
+
+        // F
+        0b11110000,
+        0b10000000,
+        0b11110000,
+        0b10000000,
+        0b10000000,
+    ];
+    emulator.memory[0..fonts.len()].copy_from_slice(&fonts);
 }
 
 fn draw_display_to_console(emulator: &Chip8Emulator) {
@@ -211,8 +327,7 @@ fn game_loop(emulator: &mut Chip8Emulator) {
         } else if byte2 == 0x29 {
             // FX29
             // I = sprite_addr[Vx]
-
-            todo!()
+            store_sprite_addr_into_i(emulator, register_x);
         } else if byte2 == 0x33 {
             // FX33
             // set_BCD(Vx)
@@ -232,6 +347,13 @@ fn game_loop(emulator: &mut Chip8Emulator) {
             panic!("This opcode doesn't exist {:02x}{:02x}", byte1, byte2);
         }
     }
+}
+
+fn store_sprite_addr_into_i(emulator: &mut Chip8Emulator, register_x: usize) {
+    let vx = emulator.data_registers[register_x];
+
+    emulator.address_register = vx as u16 * 5;
+    emulator.program_counter += 2;
 }
 
 fn draw_sprite(emulator: &mut Chip8Emulator, byte1: u8, byte2: u8) {
@@ -535,12 +657,14 @@ fn clear_display(emulator: &mut Chip8Emulator) {
     emulator.program_counter = emulator.program_counter + 2;
 }
 
-fn log(_what: String) {
-    // MUTED
-    // let mut file = OpenOptions::new()
-    //     .append(true)
-    //     .write(true)
-    //     .open("log.log")
-    //     .unwrap();
-    // writeln!(&mut file, "{}", what).unwrap();
+#[allow(unused_variables)]
+#[allow(unreachable_code)]
+fn log(what: String) {
+    return;
+    let mut file = OpenOptions::new()
+        .append(true)
+        .write(true)
+        .open("log.log")
+        .unwrap();
+    writeln!(&mut file, "{}", what).unwrap();
 }
