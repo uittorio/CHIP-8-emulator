@@ -34,7 +34,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     crossterm::terminal::enable_raw_mode().expect("to enable row mode");
     stdout().execute(Hide).expect("to hide");
 
-    let rom = fs::read("./INVADERS").expect("Error getting the file");
+    let rom = fs::read("./Tic-Tac-Toe.ch8").expect("Error getting the file");
 
     let mut emulator = Chip8Emulator {
         data_registers: [0u8; 16],
@@ -68,6 +68,9 @@ fn main() -> Result<(), Box<dyn Error>> {
 
             emulator.input = read_emulator_input(evt);
         }
+
+        emulator.delay_timer = emulator.delay_timer.saturating_sub(1);
+        emulator.sound_timer = emulator.sound_timer.saturating_sub(1);
     }
 
     stdout().execute(Show).expect("to show");
