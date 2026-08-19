@@ -34,7 +34,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     crossterm::terminal::enable_raw_mode().expect("to enable row mode");
     stdout().execute(Hide).expect("to hide");
 
-    let rom = fs::read("./15PUZZLE").expect("Error getting the file");
+    let rom = fs::read("./INVADERS").expect("Error getting the file");
 
     let mut emulator = Chip8Emulator {
         data_registers: [0u8; 16],
