@@ -50,7 +50,10 @@ fn main() -> Result<(), Box<dyn Error>> {
     execute!(
         stdout(),
         Hide,
-        PushKeyboardEnhancementFlags(KeyboardEnhancementFlags::DISAMBIGUATE_ESCAPE_CODES)
+        PushKeyboardEnhancementFlags(
+            KeyboardEnhancementFlags::DISAMBIGUATE_ESCAPE_CODES
+                | KeyboardEnhancementFlags::REPORT_EVENT_TYPES
+        )
     )
     .expect("to execute initial stuff");
 
@@ -79,7 +82,6 @@ fn main() -> Result<(), Box<dyn Error>> {
     loop {
         let start = Instant::now();
 
-        emulator.input = 0;
         match rx.try_iter().last() {
             Some(Chip8Event::Exit) => break,
             Some(Chip8Event::KeyDown(input)) => emulator.input |= input,
